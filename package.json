@@ -1,0 +1,19 @@
+{
+  "name": "cluster_socket",
+  "version": "1.0.0",
+  "description": "This app makes the server for the socket connection and manipulation of the data in prisma database",
+  "main": "index.js",
+  "author": "wynvern",
+  "license": "MIT",
+  "scripts": {
+    "start": "nodemon index.js"
+  },
+  "dependencies": {
+    "body-parser": "^1.20.2",
+    "crypto": "^1.0.1",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "nodemon": "^3.1.4",
+    "socket.io": "^4.7.5"
+  }
+}
