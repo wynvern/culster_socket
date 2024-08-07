@@ -1,6 +1,6 @@
 const express = require("express");
 const app = express();
-const http = require("http");
+const http = require("node:http");
 const server = http.createServer(app);
 const { Server } = require("socket.io");
 const { decryptToken } = require("./lib/socket");
