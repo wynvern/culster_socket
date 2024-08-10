@@ -8,6 +8,7 @@ const io = new Server(server);
 
 const connections = new Map();
 const users = new Map();
+const socketInGroup = new Map();
 
 const bodyParser = require("body-parser");
 
@@ -26,27 +27,56 @@ async function createMessage(data) {
 	});
 
 	if (response.ok) {
-		const message = await response.json();
-		io.to(data.chatId).emit("receiveMessage", message);
+		const data = await response.json();
+		return data;
 	}
 }
 
 io.on("connect", (socket) => {
+	console.log("a socket connected");
+
 	socket.on("auth", (data) => {
 		const decryptedToken = decryptToken(data.token);
 		if (!decryptedToken) return;
 
 		connections.set(socket.id, socket);
 		users.set(socket.id, decryptedToken);
+		console.log("user authenticated", decryptedToken);
+	});
+
+	socket.on("joinRoom", (data) => {
+		// TODO: Joins into a chat room
 		socket.join(data.chatId);
+		socketInGroup.set(socket.id, data.chatId);
+		console.log("user joined a room");
 	});
 
 	socket.on("sendMessage", async (data) => {
 		if (!userIsAuthenticated(socket)) return;
 
-		const message = await createMessage(data);
-		if (message) {
-			io.to(data.chatId).emit("receiveMessage", message);
+		const response = await createMessage(data);
+		if (response.message) {
+			io.to(data.chatId).emit("receiveMessage", response.message);
+		}
+		if (response.groupUsers) {
+			console.log("groupUsers", response.groupUsers);
+
+			const aliveClients = await io.fetchSockets();
+
+			// Extract client IDs from aliveClients
+			const aliveClientIds = aliveClients.map((client) => client.id);
+
+			const filteredClientIds = aliveClientIds.filter(
+				(clientId) => !socketInGroup.has(clientId)
+			);
+
+			console.log("filteredClientIds", users.get(filteredClientIds[0]));
+
+			// Send notification to connected members
+			filteredClientIds.forEach((client) => {
+				console.log("client", client);
+				io.to(client).emit("notificationMessage", response.message);
+			});
 		}
 	});
 
@@ -64,6 +94,7 @@ io.on("connect", (socket) => {
 		if (userIsAuthenticated(socket)) {
 			connections.delete(socket.id);
 			users.delete(socket.id);
+			socketInGroup.delete(socket.id);
 		}
 	});
 });
