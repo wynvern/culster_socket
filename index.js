@@ -77,10 +77,13 @@ io.on("connect", (socket) => {
 			console.log("filteredClientIds", users.get(filteredClientIds[0]));
 
 			// Send notification to connected members
-			filteredClientIds.forEach((client) => {
+			for (let i = 0; i < filteredClientIds.length; i++) {
+				const client = filteredClientIds[i];
 				console.log("client", client);
-				io.to(client).emit("notificationMessage", response.message);
-			});
+				io.to(client).emit("notificationMessage", {
+					message: response.message,
+				});
+			}
 		}
 	});
 
