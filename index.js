@@ -4,7 +4,11 @@ const http = require("node:http");
 const server = http.createServer(app);
 const { Server } = require("socket.io");
 const { decryptToken } = require("./lib/socket");
-const io = new Server(server);
+const io = new Server(server, {
+	cors: {
+		origin: "*",
+	},
+});
 
 const connections = new Map();
 const users = new Map();
