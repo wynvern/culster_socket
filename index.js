@@ -13,6 +13,7 @@ const io = new Server(server, {
 const connections = new Map();
 const users = new Map();
 const socketInGroup = new Map();
+const userSocket = new Map();
 
 const bodyParser = require("body-parser");
 
@@ -36,6 +37,30 @@ async function createMessage(data) {
 	}
 }
 
+function sendNotificationToDisconnectedSockets(io, data, response) {
+	io.fetchSockets().then((aliveClients) => {
+		// Extract client IDs from aliveClients
+		const aliveClientIds = aliveClients.map((client) => client.id);
+
+		// Filter out clients that are already in the room
+		const filteredClientIds = aliveClientIds.filter(
+			(clientId) =>
+				!io.sockets.adapter.rooms.get(data.chatId)?.has(clientId)
+		);
+
+		console.log("filteredClientIds", filteredClientIds);
+
+		// Send notification to connected members not in the room
+		for (let i = 0; i < filteredClientIds.length; i++) {
+			const client = filteredClientIds[i];
+			console.log("client", client);
+			io.to(client).emit("notificationMessage", {
+				message: response.message,
+			});
+		}
+	});
+}
+
 io.on("connect", (socket) => {
 	console.log("a socket connected");
 
@@ -44,8 +69,12 @@ io.on("connect", (socket) => {
 		if (!decryptedToken) return;
 
 		connections.set(socket.id, socket);
-		users.set(socket.id, decryptedToken);
-		console.log("user authenticated", decryptedToken);
+		userSocket.set(decryptedToken.userId, socket.id);
+		users.set(socket.id, { ...decryptedToken, socketId: socket.id });
+		console.log("user authenticated", {
+			...decryptedToken,
+			socketId: socket.id,
+		});
 	});
 
 	socket.on("joinRoom", (data) => {
@@ -64,26 +93,7 @@ io.on("connect", (socket) => {
 		}
 		if (response.groupUsers) {
 			console.log("groupUsers", response.groupUsers);
-
-			const aliveClients = await io.fetchSockets();
-
-			// Extract client IDs from aliveClients
-			const aliveClientIds = aliveClients.map((client) => client.id);
-
-			const filteredClientIds = aliveClientIds.filter(
-				(clientId) => !socketInGroup.has(clientId)
-			);
-
-			console.log("filteredClientIds", users.get(filteredClientIds[0]));
-
-			// Send notification to connected members
-			for (let i = 0; i < filteredClientIds.length; i++) {
-				const client = filteredClientIds[i];
-				console.log("client", client);
-				io.to(client).emit("notificationMessage", {
-					message: response.message,
-				});
-			}
+			sendNotificationToDisconnectedSockets(io, data, response);
 		}
 	});
 
@@ -97,9 +107,18 @@ io.on("connect", (socket) => {
 		io.to(data.chatId).emit("typing", { userId });
 	});
 
+	socket.on("serverForwardNotification", (data) => {
+		console.log("serverSendNotification", data);
+		console.log("userSocket", userSocket.get(data.receiverUserId));
+		io.to(userSocket.get(data.receiverUserId)).emit("newNotification", {
+			message: data.message,
+		});
+	});
+
 	socket.on("disconnect", () => {
 		if (userIsAuthenticated(socket)) {
 			connections.delete(socket.id);
+			userSocket.delete(users.get(socket.id).id);
 			users.delete(socket.id);
 			socketInGroup.delete(socket.id);
 		}
