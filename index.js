@@ -4,6 +4,7 @@ const http = require("node:http");
 const server = http.createServer(app);
 const { Server } = require("socket.io");
 const { decryptToken } = require("./lib/socket");
+require("dotenv").config();
 const io = new Server(server, {
 	cors: {
 		origin: "*",
@@ -14,6 +15,7 @@ const connections = new Map();
 const users = new Map();
 const socketInGroup = new Map();
 const userSocket = new Map();
+const port = process.env.PORT || 3002;
 
 const bodyParser = require("body-parser");
 
@@ -26,10 +28,13 @@ function userIsAuthenticated(socket) {
 }
 
 async function createMessage(data) {
-	const response = await fetch("http://localhost:3000/api/chat/messages", {
-		body: JSON.stringify(data),
-		method: "POST",
-	});
+	const response = await fetch(
+		`${process.env.MAIN_API_URL}/api/chat/messages`,
+		{
+			body: JSON.stringify(data),
+			method: "POST",
+		}
+	);
 
 	if (response.ok) {
 		const data = await response.json();
@@ -125,6 +130,6 @@ io.on("connect", (socket) => {
 	});
 });
 
-server.listen(3002, () => {
-	console.log("listening on *:3002");
+server.listen(port, () => {
+	console.log(`listening on *:${port}`);
 });
