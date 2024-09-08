@@ -53,12 +53,10 @@ function sendNotificationToDisconnectedSockets(io, data, response) {
 				!io.sockets.adapter.rooms.get(data.chatId)?.has(clientId)
 		);
 
-		console.log("filteredClientIds", filteredClientIds);
-
 		// Send notification to connected members not in the room
 		for (let i = 0; i < filteredClientIds.length; i++) {
 			const client = filteredClientIds[i];
-			console.log("client", client);
+
 			io.to(client).emit("notificationMessage", {
 				message: response.message,
 			});
@@ -67,8 +65,6 @@ function sendNotificationToDisconnectedSockets(io, data, response) {
 }
 
 io.on("connect", (socket) => {
-	console.log("a socket connected");
-
 	socket.on("auth", (data) => {
 		const decryptedToken = decryptToken(data.token);
 		if (!decryptedToken) return;
@@ -76,17 +72,11 @@ io.on("connect", (socket) => {
 		connections.set(socket.id, socket);
 		userSocket.set(decryptedToken.userId, socket.id);
 		users.set(socket.id, { ...decryptedToken, socketId: socket.id });
-		console.log("user authenticated", {
-			...decryptedToken,
-			socketId: socket.id,
-		});
 	});
 
 	socket.on("joinRoom", (data) => {
-		// TODO: Joins into a chat room
 		socket.join(data.chatId);
 		socketInGroup.set(socket.id, data.chatId);
-		console.log("user joined a room");
 	});
 
 	socket.on("sendMessage", async (data) => {
@@ -97,7 +87,6 @@ io.on("connect", (socket) => {
 			io.to(data.chatId).emit("receiveMessage", response.message);
 		}
 		if (response.groupUsers) {
-			console.log("groupUsers", response.groupUsers);
 			sendNotificationToDisconnectedSockets(io, data, response);
 		}
 	});
@@ -105,16 +94,12 @@ io.on("connect", (socket) => {
 	socket.on("setTyping", (data) => {
 		if (!userIsAuthenticated(socket)) return;
 
-		console.log("typing", data);
-
 		const userId = users.get(socket.id).id;
 
 		io.to(data.chatId).emit("typing", { userId });
 	});
 
 	socket.on("serverForwardNotification", (data) => {
-		console.log("serverSendNotification", data);
-		console.log("userSocket", userSocket.get(data.receiverUserId));
 		io.to(userSocket.get(data.receiverUserId)).emit("newNotification", {
 			message: data.message,
 		});
@@ -130,6 +115,4 @@ io.on("connect", (socket) => {
 	});
 });
 
-server.listen(port, () => {
-	console.log(`listening on *:${port}`);
-});
+server.listen(port, () => {});
