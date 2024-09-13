@@ -82,9 +82,14 @@ io.on("connect", (socket) => {
 	socket.on("sendMessage", async (data) => {
 		if (!userIsAuthenticated(socket)) return;
 
+		// Pass the createdAt value to the createMessage function
 		const response = await createMessage(data);
+
 		if (response.message) {
-			io.to(data.chatId).emit("receiveMessage", response.message);
+			io.to(data.chatId).emit("receiveMessage", {
+				...response.message,
+				createdAt: data.createdAt,
+			});
 		}
 		if (response.groupUsers) {
 			sendNotificationToDisconnectedSockets(io, data, response);
