@@ -16,12 +16,14 @@ const users = new Map();
 const socketInGroup = new Map();
 const userSocket = new Map();
 const port = process.env.PORT || 3002;
+const typingUsers = new Map();
+const typingTimeouts = new Map();
 
 const bodyParser = require("body-parser");
 
 app.use(bodyParser.json({ limit: "50mb" }));
 
-// TODO: ChatId should be saved on the auth
+// TODO: ChatId should be saved on the au\asdasdaadsasda
 
 function userIsAuthenticated(socket) {
 	return connections.has(socket.id);
@@ -44,16 +46,12 @@ async function createMessage(data) {
 
 function sendNotificationToDisconnectedSockets(io, data, response) {
 	io.fetchSockets().then((aliveClients) => {
-		// Extract client IDs from aliveClients
 		const aliveClientIds = aliveClients.map((client) => client.id);
-
-		// Filter out clients that are already in the room
 		const filteredClientIds = aliveClientIds.filter(
 			(clientId) =>
 				!io.sockets.adapter.rooms.get(data.chatId)?.has(clientId)
 		);
 
-		// Send notification to connected members not in the room
 		for (let i = 0; i < filteredClientIds.length; i++) {
 			const client = filteredClientIds[i];
 
@@ -82,7 +80,6 @@ io.on("connect", (socket) => {
 	socket.on("sendMessage", async (data) => {
 		if (!userIsAuthenticated(socket)) return;
 
-		// Pass the createdAt value to the createMessage function
 		const response = await createMessage(data);
 
 		if (response.message) {
@@ -96,12 +93,49 @@ io.on("connect", (socket) => {
 		}
 	});
 
-	socket.on("setTyping", (data) => {
+	socket.on("chatEnabledStatus", (data) => {
+		console.log("chatEnabledStatus", data);
+		io.to(data.chatId).emit("chatEnabledStatusClient", data);
+	});
+
+	socket.on("deleteMessage", (data) => {
+		if (!userIsAuthenticated(socket)) return;
+		console.log("message to deletion");
+		// TODO: Validate if message is from the user
+
+		io.to(data.chatId).emit("deleteChatMessage", data);
+	});
+
+	socket.on("typing", (data) => {
 		if (!userIsAuthenticated(socket)) return;
 
-		const userId = users.get(socket.id).id;
+		const { chatId, userId, username } = data;
+		if (!typingUsers.has(chatId)) {
+			typingUsers.set(chatId, new Map());
+		}
+		if (!typingTimeouts.has(chatId)) {
+			typingTimeouts.set(chatId, new Map());
+		}
 
-		io.to(data.chatId).emit("typing", { userId });
+		const usersTyping = typingUsers.get(chatId);
+		const userTimeouts = typingTimeouts.get(chatId);
+
+		if (usersTyping.has(userId)) {
+			clearTimeout(userTimeouts.get(userId));
+		} else {
+			usersTyping.set(userId, username);
+		}
+
+		const timeout = setTimeout(() => {
+			usersTyping.delete(userId);
+			io.to(chatId).emit("whoIsTyping", Array.from(usersTyping.values()));
+			userTimeouts.delete(userId);
+		}, 3000);
+
+		userTimeouts.set(userId, timeout);
+
+		io.to(chatId).emit("whoIsTyping", Array.from(usersTyping.values()));
+		console.log("typing");
 	});
 
 	socket.on("serverForwardNotification", (data) => {
