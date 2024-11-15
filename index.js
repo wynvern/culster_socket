@@ -35,7 +35,7 @@ async function createMessage(data) {
 		{
 			body: JSON.stringify(data),
 			method: "POST",
-		}
+		},
 	);
 
 	if (response.ok) {
@@ -48,8 +48,7 @@ function sendNotificationToDisconnectedSockets(io, data, response) {
 	io.fetchSockets().then((aliveClients) => {
 		const aliveClientIds = aliveClients.map((client) => client.id);
 		const filteredClientIds = aliveClientIds.filter(
-			(clientId) =>
-				!io.sockets.adapter.rooms.get(data.chatId)?.has(clientId)
+			(clientId) => !io.sockets.adapter.rooms.get(data.chatId)?.has(clientId),
 		);
 
 		for (let i = 0; i < filteredClientIds.length; i++) {
@@ -94,13 +93,12 @@ io.on("connect", (socket) => {
 	});
 
 	socket.on("chatEnabledStatus", (data) => {
-		console.log("chatEnabledStatus", data);
 		io.to(data.chatId).emit("chatEnabledStatusClient", data);
 	});
 
 	socket.on("deleteMessage", (data) => {
 		if (!userIsAuthenticated(socket)) return;
-		console.log("message to deletion");
+
 		// TODO: Validate if message is from the user
 
 		io.to(data.chatId).emit("deleteChatMessage", data);
@@ -135,7 +133,6 @@ io.on("connect", (socket) => {
 		userTimeouts.set(userId, timeout);
 
 		io.to(chatId).emit("whoIsTyping", Array.from(usersTyping.values()));
-		console.log("typing");
 	});
 
 	socket.on("serverForwardNotification", (data) => {
